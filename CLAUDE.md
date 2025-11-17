@@ -137,6 +137,65 @@ The backend exposes an OpenAI-compatible Responses API endpoint:
 }
 ```
 
+**With Conversation Persistence:**
+```json
+{
+  "model": "claude-haiku-4-5-20251001",
+  "input": "Hello!",
+  "conversation_id": "conv_abc123"
+}
+```
+
+### OpenAI Conversations API
+
+The backend fully implements the OpenAI Conversations API for persistent conversation storage:
+
+**Endpoints:**
+- `POST /v1/conversations` - Create a new conversation
+- `GET /v1/conversations/{conversation_id}` - Retrieve a conversation
+- `PATCH /v1/conversations/{conversation_id}` - Update conversation metadata
+- `DELETE /v1/conversations/{conversation_id}` - Delete a conversation
+- `POST /v1/conversations/{conversation_id}/items` - Add items to conversation
+- `GET /v1/conversations/{conversation_id}/items` - List conversation items
+- `GET /v1/conversations/{conversation_id}/items/{item_id}` - Get specific item
+- `DELETE /v1/conversations/{conversation_id}/items/{item_id}` - Delete an item
+
+**Create Conversation Example:**
+```json
+{
+  "metadata": {"topic": "project-x", "user": "alice"},
+  "items": []
+}
+```
+
+**Response:**
+```json
+{
+  "id": "conv_abc123",
+  "object": "conversation",
+  "metadata": {"topic": "project-x", "user": "alice"},
+  "created_at": 1741476542
+}
+```
+
+### Conversation Storage
+
+Conversations are persisted using a pluggable storage abstraction layer:
+
+**Current Implementation:** File-based storage
+- Location: `.conversations/` directory (gitignored)
+- Format: JSON files, one per conversation
+- Structure: `{conversation_id}.json`
+
+**Abstraction Layer:** `storage/base.py`
+- Abstract base class `ConversationStorage`
+- Easy to add new implementations (database, cloud storage, etc.)
+
+**File Storage:** `storage/file_storage.py`
+- `FileConversationStorage` - stores conversations as JSON files
+- Thread-safe async file I/O
+- Automatic timestamping
+
 ### Implementation Strategy
 
 1. **Backend receives OpenAI Responses API request** at `/v1/responses`
@@ -184,22 +243,26 @@ pnpm dev
 - [x] .gitignore files configured for each context
 - [x] Dependencies defined (claude-agent-sdk, React 19)
 - [x] Reference documentation added
-- [ ] Backend API implementation
+- [x] Backend API implementation
+  - [x] OpenAI Responses API (`/v1/responses`)
+  - [x] OpenAI Conversations API (`/v1/conversations`)
+  - [x] Conversation persistence with file-based storage
+  - [x] Abstraction layer for future storage implementations
 - [ ] Frontend chat UI
-- [ ] OpenAI API compatibility layer
-- [ ] Basic conversation flow working
+- [ ] Basic conversation flow working end-to-end
 
 ## Next Steps
 
-1. Create FastAPI backend with `/v1/chat/completions` endpoint
-2. Implement Claude Agent SDK integration
-3. Add request/response transformation logic
-4. Build simple chat UI in frontend
-5. Connect frontend to backend API
-6. Test basic conversation flow
-7. Add streaming support
-8. Add error handling
-9. Add conversation history management
+1. ~~Create FastAPI backend with `/v1/responses` endpoint~~ ✅
+2. ~~Implement Claude Agent SDK integration~~ ✅
+3. ~~Add request/response transformation logic~~ ✅
+4. ~~Add conversation persistence~~ ✅
+5. Build simple chat UI in frontend
+6. Connect frontend to backend API
+7. Test basic conversation flow end-to-end
+8. Add streaming support
+9. Add error handling improvements
+10. Consider additional storage backends (PostgreSQL, Redis, etc.)
 
 ## Notes
 

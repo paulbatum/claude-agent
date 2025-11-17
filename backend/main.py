@@ -4,9 +4,9 @@ FastAPI backend that exposes Claude Agent SDK via OpenAI Responses API format.
 import os
 import time
 import uuid
-from typing import Optional, List, Dict, Any, Literal, AsyncIterator
+from typing import Optional, List, Dict, Any, Literal, AsyncIterator, Union
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -19,6 +19,7 @@ from claude_agent_sdk import (
     ResultMessage,
     SystemMessage,
 )
+from storage import FileConversationStorage
 
 # Load environment variables
 load_dotenv(dotenv_path="../.env")
@@ -33,6 +34,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Initialize conversation storage
+conversation_storage = FileConversationStorage()
 
 
 # ============================================================================
@@ -77,6 +81,7 @@ class CreateResponseRequest(BaseModel):
     stream: bool = False
     store: bool = True
     previous_response_id: Optional[str] = None
+    conversation_id: Optional[str] = None
     temperature: Optional[float] = 1.0
     max_output_tokens: Optional[int] = None
 
@@ -157,6 +162,44 @@ class ResponseCompletedEvent(StreamEventBase):
     """Emitted when the response is completed."""
     type: Literal["response.completed"] = "response.completed"
     response: ResponseObject
+
+
+# ============================================================================
+# OpenAI Conversations API Models
+# ============================================================================
+
+class ConversationObject(BaseModel):
+    id: str
+    object: Literal["conversation"] = "conversation"
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: int
+
+
+class CreateConversationRequest(BaseModel):
+    metadata: Optional[Dict[str, Any]] = None
+    items: Optional[List[Dict[str, Any]]] = None
+
+
+class UpdateConversationRequest(BaseModel):
+    metadata: Dict[str, Any]
+
+
+class DeletedConversationObject(BaseModel):
+    id: str
+    object: Literal["conversation.deleted"] = "conversation.deleted"
+    deleted: bool = True
+
+
+class AddItemsRequest(BaseModel):
+    items: List[Dict[str, Any]]
+
+
+class ItemsListResponse(BaseModel):
+    object: Literal["list"] = "list"
+    data: List[Dict[str, Any]]
+    has_more: bool
+    first_id: Optional[str] = None
+    last_id: Optional[str] = None
 
 
 # ============================================================================
@@ -536,6 +579,32 @@ async def create_response(request: CreateResponseRequest):
                 "response": response.model_dump()
             }
 
+        # If conversation_id is provided, add items to the conversation
+        if request.conversation_id:
+            # Add user input message
+            user_message = {
+                "id": f"msg_{uuid.uuid4().hex}",
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": request.input}],
+                "created_at": int(time.time())
+            }
+
+            # Add assistant output message
+            assistant_message = {
+                "id": message_id,
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": result["text"]}],
+                "created_at": int(time.time())
+            }
+
+            # Add both messages to the conversation
+            await conversation_storage.add_items(
+                conversation_id=request.conversation_id,
+                items=[user_message, assistant_message]
+            )
+
         return response
 
 
@@ -549,6 +618,148 @@ async def get_response(response_id: str) -> ResponseObject:
 
     stored = conversations[response_id]["response"]
     return ResponseObject(**stored)
+
+
+# ============================================================================
+# Conversations API Endpoints
+# ============================================================================
+
+@app.post("/v1/conversations")
+async def create_conversation(request: CreateConversationRequest) -> ConversationObject:
+    """
+    Create a new conversation.
+    Compatible with OpenAI's /v1/conversations API.
+    """
+    conversation_id = f"conv_{uuid.uuid4().hex}"
+
+    conversation = await conversation_storage.create_conversation(
+        conversation_id=conversation_id,
+        metadata=request.metadata,
+        items=request.items
+    )
+
+    return ConversationObject(**conversation)
+
+
+@app.get("/v1/conversations/{conversation_id}")
+async def get_conversation(conversation_id: str) -> ConversationObject:
+    """
+    Retrieve a conversation by ID.
+    """
+    conversation = await conversation_storage.get_conversation(conversation_id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    return ConversationObject(**conversation)
+
+
+@app.patch("/v1/conversations/{conversation_id}")
+async def update_conversation(
+    conversation_id: str,
+    request: UpdateConversationRequest
+) -> ConversationObject:
+    """
+    Update conversation metadata.
+    """
+    conversation = await conversation_storage.update_conversation(
+        conversation_id=conversation_id,
+        metadata=request.metadata
+    )
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    return ConversationObject(**conversation)
+
+
+@app.delete("/v1/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str) -> DeletedConversationObject:
+    """
+    Delete a conversation.
+    """
+    deleted = await conversation_storage.delete_conversation(conversation_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    return DeletedConversationObject(id=conversation_id)
+
+
+@app.post("/v1/conversations/{conversation_id}/items")
+async def add_conversation_items(
+    conversation_id: str,
+    request: AddItemsRequest
+) -> ItemsListResponse:
+    """
+    Add items to a conversation.
+    """
+    items = await conversation_storage.add_items(
+        conversation_id=conversation_id,
+        items=request.items
+    )
+    if items is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    return ItemsListResponse(
+        data=items,
+        has_more=False,
+        first_id=items[0].get("id") if items else None,
+        last_id=items[-1].get("id") if items else None
+    )
+
+
+@app.get("/v1/conversations/{conversation_id}/items")
+async def list_conversation_items(
+    conversation_id: str,
+    limit: int = Query(default=100, le=100),
+    after: Optional[str] = None
+) -> ItemsListResponse:
+    """
+    List items in a conversation.
+    """
+    result = await conversation_storage.list_items(
+        conversation_id=conversation_id,
+        limit=limit,
+        after=after
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    return ItemsListResponse(**result)
+
+
+@app.get("/v1/conversations/{conversation_id}/items/{item_id}")
+async def get_conversation_item(
+    conversation_id: str,
+    item_id: str
+) -> Dict[str, Any]:
+    """
+    Get a specific item from a conversation.
+    """
+    item = await conversation_storage.get_item(
+        conversation_id=conversation_id,
+        item_id=item_id
+    )
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    return item
+
+
+@app.delete("/v1/conversations/{conversation_id}/items/{item_id}")
+async def delete_conversation_item(
+    conversation_id: str,
+    item_id: str
+) -> ConversationObject:
+    """
+    Delete an item from a conversation.
+    """
+    conversation = await conversation_storage.delete_item(
+        conversation_id=conversation_id,
+        item_id=item_id
+    )
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    return ConversationObject(**conversation)
 
 
 @app.get("/health")
