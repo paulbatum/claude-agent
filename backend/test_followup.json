@@ -1,0 +1,7 @@
+{
+  "model": "claude-haiku-4-5-20251001",
+  "input": "What was my previous question?",
+  "stream": false,
+  "store": true,
+  "previous_response_id": "resp_b30c67d9af9a4e2fa02a90fa23f0bd9a"
+}

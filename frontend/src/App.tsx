@@ -1,0 +1,151 @@
+import { useState, useRef, useEffect } from 'react'
+import './App.css'
+
+interface Message {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+interface ResponseOutput {
+  type: string
+  id: string
+  status: string
+  role: string
+  content: Array<{
+    type: string
+    text: string
+  }>
+}
+
+interface ApiResponse {
+  id: string
+  output: ResponseOutput[]
+  usage: {
+    input_tokens: number
+    output_tokens: number
+    total_tokens: number
+  }
+}
+
+function App() {
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [lastResponseId, setLastResponseId] = useState<string | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
+
+  const sendMessage = async () => {
+    if (!input.trim() || isLoading) return
+
+    const userMessage = input.trim()
+    setInput('')
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }])
+    setIsLoading(true)
+
+    try {
+      const response = await fetch('http://localhost:8000/v1/responses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          input: userMessage,
+          stream: false,
+          store: true,
+          previous_response_id: lastResponseId,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data: ApiResponse = await response.json()
+
+      // Extract assistant message from response
+      const assistantText = data.output[0]?.content[0]?.text || 'No response'
+
+      setMessages(prev => [...prev, { role: 'assistant', content: assistantText }])
+      setLastResponseId(data.id)
+    } catch (error) {
+      console.error('Error:', error)
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage()
+    }
+  }
+
+  return (
+    <div className="app">
+      <div className="chat-header">
+        <h1>Claude Agent Chat</h1>
+        <p className="model-info">Model: claude-haiku-4-5-20251001</p>
+      </div>
+
+      <div className="messages-container">
+        {messages.length === 0 && (
+          <div className="empty-state">
+            <p>Start a conversation with Claude Agent</p>
+          </div>
+        )}
+
+        {messages.map((message, index) => (
+          <div key={index} className={`message ${message.role}`}>
+            <div className="message-role">{message.role === 'user' ? 'You' : 'Claude'}</div>
+            <div className="message-content">{message.content}</div>
+          </div>
+        ))}
+
+        {isLoading && (
+          <div className="message assistant">
+            <div className="message-role">Claude</div>
+            <div className="message-content">
+              <div className="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="input-container">
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
+          disabled={isLoading}
+          rows={3}
+        />
+        <button onClick={sendMessage} disabled={isLoading || !input.trim()}>
+          Send
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default App
