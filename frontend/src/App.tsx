@@ -59,7 +59,7 @@ function App() {
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           input: userMessage,
-          stream: false,
+          stream: true,  // Enable streaming
           store: true,
           previous_response_id: lastResponseId,
         }),
@@ -69,13 +69,62 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const data: ApiResponse = await response.json()
+      // Handle SSE streaming
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
 
-      // Extract assistant message from response
-      const assistantText = data.output[0]?.content[0]?.text || 'No response'
+      if (!reader) {
+        throw new Error('Response body is not readable')
+      }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: assistantText }])
-      setLastResponseId(data.id)
+      let streamedText = ''
+      let responseId = ''
+
+      // Add placeholder message for streaming
+      setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+      const assistantMessageIndex = messages.length + 1 // +1 because we just added the user message
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        // Decode chunk and split by SSE event boundaries
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonData = line.slice(6) // Remove 'data: ' prefix
+
+            try {
+              const event = JSON.parse(jsonData)
+
+              // Handle different event types
+              if (event.type === 'response.output_text.delta') {
+                // Update streaming text
+                streamedText += event.delta
+                setMessages(prev => {
+                  const newMessages = [...prev]
+                  if (newMessages[assistantMessageIndex]) {
+                    newMessages[assistantMessageIndex] = {
+                      role: 'assistant',
+                      content: streamedText
+                    }
+                  }
+                  return newMessages
+                })
+              } else if (event.type === 'response.completed') {
+                // Store response ID for multi-turn conversations
+                responseId = event.response.id
+                setLastResponseId(responseId)
+              }
+            } catch (e) {
+              // Ignore parse errors for non-JSON lines
+            }
+          }
+        }
+      }
+
     } catch (error) {
       console.error('Error:', error)
       setMessages(prev => [...prev, {
