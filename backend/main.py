@@ -335,12 +335,20 @@ async def stream_claude_agent(
     sequence_number += 1
 
     # Process streaming response from Claude SDK
+    # Use receive_response() to get one complete response turn (including StreamEvents)
+    # This will automatically stop after the response is complete
     async for message in client.receive_response():
-        if isinstance(message, AssistantMessage):
-            for block in message.content:
-                if isinstance(block, TextBlock):
-                    # Send delta event for each text chunk
-                    delta_text = block.text
+        # Check if this is a StreamEvent (has an 'event' attribute) using duck typing
+        if hasattr(message, 'event') and hasattr(message.event, 'get'):
+            # Handle streaming events from the Claude API
+            event = message.event
+            event_type = event.get("type")
+
+            if event_type == "content_block_delta":
+                # Extract text delta from streaming event
+                delta = event.get("delta", {})
+                if delta.get("type") == "text_delta":
+                    delta_text = delta.get("text", "")
                     if delta_text:
                         response_text += delta_text
 
@@ -354,11 +362,21 @@ async def stream_claude_agent(
                         })
                         sequence_number += 1
 
+        elif isinstance(message, AssistantMessage):
+            # Collect final text from AssistantMessage (fallback for non-streaming or final message)
+            for block in message.content:
+                if isinstance(block, TextBlock):
+                    # Only use this if we haven't accumulated text from deltas
+                    if not response_text:
+                        response_text = block.text
+
         elif isinstance(message, ResultMessage):
-            # Extract usage information
+            # Extract usage information and break (end of entire conversation)
             if message.usage:
                 input_tokens = message.usage.get("input_tokens", 0)
                 output_tokens = message.usage.get("output_tokens", 0)
+            # Don't break yet - there might be more messages after tool execution
+            # Only break when the iteration naturally completes
 
     # Send response.output_text.done event
     yield format_sse("response.output_text.done", {
