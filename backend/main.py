@@ -338,8 +338,15 @@ async def stream_claude_agent(
     # Use receive_response() to get one complete response turn (including StreamEvents)
     # This will automatically stop after the response is complete
     async for message in client.receive_response():
-        # Check if this is a StreamEvent (has an 'event' attribute) using duck typing
-        if hasattr(message, 'event') and hasattr(message.event, 'get'):
+        # Check if this is a StreamEvent by explicitly verifying it's not a known message type
+        # and has an 'event' dict attribute (more robust than duck typing)
+        is_stream_event = (
+            not isinstance(message, (AssistantMessage, ResultMessage, SystemMessage))
+            and hasattr(message, 'event')
+            and isinstance(getattr(message, 'event', None), dict)
+        )
+
+        if is_stream_event:
             # Handle streaming events from the Claude API
             event = message.event
             event_type = event.get("type")
