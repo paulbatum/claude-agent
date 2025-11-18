@@ -12,6 +12,14 @@ This project implements an AI agent powered by the Claude Agent SDK, exposed via
 ├── CLAUDE.md                 # This file - project documentation
 ├── README.md                 # Project readme
 ├── .gitignore                # Root gitignore (OS/IDE files)
+├── docs/                     # ⭐ Comprehensive documentation (KEEP UP TO DATE!)
+│   ├── architecture.md              # System architecture and design
+│   ├── backend-implementation.md    # Backend code walkthrough
+│   ├── frontend-implementation.md   # Frontend code walkthrough
+│   ├── claude-sdk-integration.md    # Claude SDK usage details
+│   ├── api-compatibility.md         # OpenAI API compatibility
+│   ├── deployment.md                # Deployment and operations
+│   └── querying-this-agent.md       # How to ask this agent about itself
 ├── reference/                # Reference documentation
 │   ├── claude-agent-sdk.md   # Claude Agent SDK API reference
 │   └── openapi.documented.yml # OpenAI API specification
@@ -27,7 +35,7 @@ This project implements an AI agent powered by the Claude Agent SDK, exposed via
     ├── .gitignore            # Python-specific gitignore
     ├── .venv/                # Python virtual environment
     ├── pyproject.toml        # Python dependencies (claude-agent-sdk, fastapi)
-    └── ...                   # Source files (to be created)
+    └── main.py               # Complete FastAPI application
 ```
 
 ## Technology Stack
@@ -184,10 +192,13 @@ pnpm dev
 - [x] .gitignore files configured for each context
 - [x] Dependencies defined (claude-agent-sdk, React 19)
 - [x] Reference documentation added
-- [ ] Backend API implementation
-- [ ] Frontend chat UI
-- [ ] OpenAI API compatibility layer
-- [ ] Basic conversation flow working
+- [x] Backend API implementation
+- [x] Frontend chat UI
+- [x] OpenAI API compatibility layer
+- [x] Basic conversation flow working
+- [x] Streaming support (SSE)
+- [x] Multi-turn conversations
+- [x] Comprehensive documentation in /docs
 
 ## Next Steps
 
@@ -205,5 +216,208 @@ pnpm dev
 
 - Using Haiku model during development for speed and cost efficiency
 - The Claude Agent SDK doesn't use environment variables for model selection - pass it programmatically in `ClaudeAgentOptions`
-- Frontend should use OpenAI client libraries or direct fetch calls to `/v1/chat/completions`
-- Consider adding CORS middleware for local development
+- Frontend should use OpenAI client libraries or direct fetch calls to `/v1/responses`
+- CORS middleware is configured for local development (localhost:5173, localhost:3000)
+
+## 📚 Documentation System
+
+### Overview
+
+This agent is designed to be **self-aware** - it can accurately explain its own architecture, implementation, and behavior by reading its comprehensive documentation in the `/docs` folder.
+
+### 🤖 Instructions for the Agent (You!)
+
+**If you are an instance of this agent reading this file**, here are special instructions for answering questions about yourself:
+
+**When a user asks about this project's implementation, architecture, or code:**
+
+1. **Search Documentation First**: Use the `Grep` or `Glob` tool to search the `/docs` folder for relevant information
+   - Example: User asks "How does streaming work?" → Search `docs/` for "streaming"
+   - The docs are comprehensive and include code references
+
+2. **Read Source Code for Details**: After finding relevant docs, read the actual source files mentioned
+   - Docs include file paths and line numbers (e.g., `backend/main.py:256-472`)
+   - Use the `Read` tool to verify current implementation
+
+3. **Provide Code Snippets**: Always include actual code examples when explaining implementation
+   - Use the exact code from the files, not pseudocode
+   - Include file paths and line numbers (e.g., "In `backend/main.py:123`...")
+
+4. **Verify Accuracy**: If docs seem outdated, read the source file directly
+   - Trust source code over documentation if they conflict
+   - Suggest documentation updates if you find discrepancies
+
+5. **Available Documentation**:
+   - `docs/architecture.md` - System design, data flow, architecture decisions
+   - `docs/backend-implementation.md` - Backend code walkthrough
+   - `docs/frontend-implementation.md` - Frontend code walkthrough
+   - `docs/claude-sdk-integration.md` - Claude SDK usage details
+   - `docs/api-compatibility.md` - OpenAI API compatibility
+   - `docs/deployment.md` - Deployment instructions
+   - `docs/querying-this-agent.md` - How users should query you
+
+6. **Example Workflow**:
+   ```
+   User: "How does streaming work?"
+
+   You should:
+   1. Grep for "streaming" in docs/ folder
+   2. Read docs/backend-implementation.md (has streaming section)
+   3. Read backend/main.py:256-472 (streaming implementation)
+   4. Explain with code snippets and file references
+   ```
+
+7. **Always Provide Context**: Explain both "what" the code does and "why" it's designed that way
+
+**These docs are YOUR knowledge base about yourself. Use them actively!**
+
+### Documentation Files
+
+The `/docs` folder contains in-depth documentation that MUST be kept up-to-date:
+
+- **architecture.md**: High-level system design, data flow, design principles
+- **backend-implementation.md**: Detailed backend code walkthrough with line numbers
+- **frontend-implementation.md**: Frontend implementation with code examples
+- **claude-sdk-integration.md**: How Claude Agent SDK is used
+- **api-compatibility.md**: OpenAI Responses API compatibility details
+- **deployment.md**: Development and production deployment guides
+- **querying-this-agent.md**: How to ask this agent about itself
+
+### Critical: Keep Documentation Current
+
+**⚠️ DOCUMENTATION MAINTENANCE IS MANDATORY ⚠️**
+
+When you make ANY changes to the codebase, you MUST update the relevant documentation files. This ensures the agent can always provide accurate answers about itself.
+
+#### Documentation Update Checklist
+
+Use this checklist for every code change:
+
+**Backend Changes** (`backend/main.py` or new backend files):
+- [ ] Update `docs/backend-implementation.md` with code changes
+- [ ] Update line number references if code moved
+- [ ] Update `docs/architecture.md` if architecture changed
+- [ ] Update `docs/api-compatibility.md` if API changed
+- [ ] Update `docs/claude-sdk-integration.md` if SDK usage changed
+
+**Frontend Changes** (`frontend/src/` files):
+- [ ] Update `docs/frontend-implementation.md` with code changes
+- [ ] Update line number references if code moved
+- [ ] Update `docs/architecture.md` if data flow changed
+- [ ] Update `docs/api-compatibility.md` if API usage changed
+
+**Configuration Changes** (env vars, dependencies, etc.):
+- [ ] Update `CLAUDE.md` (this file)
+- [ ] Update `docs/deployment.md`
+- [ ] Update `docs/backend-implementation.md` or `docs/frontend-implementation.md`
+
+**New Features**:
+- [ ] Add section to relevant docs file(s)
+- [ ] Update `docs/architecture.md` if applicable
+- [ ] Add examples and code snippets
+- [ ] Update this file's "Current Status" section
+
+**Deployment Changes**:
+- [ ] Update `docs/deployment.md`
+- [ ] Update Docker files if present
+- [ ] Update environment variable documentation
+
+**Bug Fixes**:
+- [ ] Update relevant documentation to reflect the fix
+- [ ] Add to "Common Issues" sections if applicable
+
+### How to Verify Documentation Accuracy
+
+After making changes, you can verify documentation is current by asking the agent:
+
+```
+"Does the documentation accurately reflect the current implementation of [feature]?"
+"Show me the code for [feature] and verify it matches the docs"
+"Review docs/[filename].md for accuracy"
+```
+
+The agent will read the source code and documentation to verify consistency.
+
+### Agent Self-Awareness Capabilities
+
+This agent can:
+- ✅ Explain any part of its own codebase
+- ✅ Show exact code with file paths and line numbers
+- ✅ Explain design decisions and trade-offs
+- ✅ Debug common issues
+- ✅ Provide deployment instructions
+- ✅ Walk through execution flows
+- ✅ Compare implementation alternatives
+
+### Using the Agent's Self-Knowledge
+
+To learn about this project, just ask questions:
+
+**Examples**:
+- "How does streaming work in this application?"
+- "Explain the multi-turn conversation implementation"
+- "Show me the code that handles SSE events"
+- "What tools are configured in the Claude SDK?"
+- "How do I deploy this to production?"
+- "Walk me through what happens when a user sends a message"
+
+The agent will search its documentation and read source code to provide accurate, detailed answers.
+
+**See `docs/querying-this-agent.md` for a complete guide** on asking the agent about itself.
+
+### For New Developers
+
+1. Clone this repository
+2. Start the agent (see "Development Workflow" above)
+3. Ask it questions about the codebase
+4. Get instant, accurate answers with code examples
+5. Learn interactively instead of reading static docs
+
+### Agent Configuration for Self-Awareness
+
+The agent is configured to load this file (`CLAUDE.md`) via:
+
+```python
+options = ClaudeAgentOptions(
+    setting_sources=["project"],  # Loads CLAUDE.md
+    allowed_tools=["Read", "Write", "Bash"],  # Can read docs and code
+    # ...
+)
+```
+
+This gives the agent context about:
+- Project structure and purpose
+- Technology choices and why
+- Where to find information
+- Instructions to keep documentation current
+
+### Documentation Best Practices
+
+When writing or updating docs:
+
+1. **Include Code References**: Link to specific files and line numbers
+   - Example: "See `backend/main.py:256-472` for streaming implementation"
+
+2. **Explain "Why" Not Just "What"**:
+   - Bad: "The code creates a new client"
+   - Good: "A new client is created for each request to avoid connection state issues"
+
+3. **Provide Examples**: Show actual code snippets, not pseudocode
+
+4. **Stay Current**: Update immediately when code changes
+
+5. **Be Searchable**: Use clear headings and keywords the agent can search for
+
+6. **Include Troubleshooting**: Document common issues and solutions
+
+7. **Link Between Docs**: Reference related documentation files
+
+### When Documentation Falls Behind
+
+If you find documentation is outdated:
+
+1. **Fix It Immediately**: Update the relevant docs file(s)
+2. **Test the Agent**: Ask it to verify the updates
+3. **Commit Both**: Code changes and doc updates in same commit
+
+**Remember**: The agent is only as knowledgeable as its documentation. Outdated docs = wrong answers to users.
