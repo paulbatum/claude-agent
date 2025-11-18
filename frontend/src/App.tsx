@@ -6,27 +6,6 @@ interface Message {
   content: string
 }
 
-interface ResponseOutput {
-  type: string
-  id: string
-  status: string
-  role: string
-  content: Array<{
-    type: string
-    text: string
-  }>
-}
-
-interface ApiResponse {
-  id: string
-  output: ResponseOutput[]
-  usage: {
-    input_tokens: number
-    output_tokens: number
-    total_tokens: number
-  }
-}
-
 function App() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -79,6 +58,7 @@ function App() {
 
       let streamedText = ''
       let responseId = ''
+      let buffer = '' // Buffer to accumulate partial chunks
 
       // Add placeholder message for streaming
       setMessages(prev => [...prev, { role: 'assistant', content: '' }])
@@ -88,38 +68,49 @@ function App() {
         const { done, value } = await reader.read()
         if (done) break
 
-        // Decode chunk and split by SSE event boundaries
+        // Decode chunk and add to buffer
         const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n')
+        buffer += chunk
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const jsonData = line.slice(6) // Remove 'data: ' prefix
+        // Split by double newline to find complete SSE events
+        const events = buffer.split('\n\n')
 
-            try {
-              const event = JSON.parse(jsonData)
+        // Keep the last incomplete event in the buffer for next iteration
+        buffer = events.pop() || ''
 
-              // Handle different event types
-              if (event.type === 'response.output_text.delta') {
-                // Update streaming text
-                streamedText += event.delta
-                setMessages(prev => {
-                  const newMessages = [...prev]
-                  if (newMessages[assistantMessageIndex]) {
-                    newMessages[assistantMessageIndex] = {
-                      role: 'assistant',
-                      content: streamedText
+        // Process complete events
+        for (const event of events) {
+          const lines = event.split('\n')
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const jsonData = line.slice(6) // Remove 'data: ' prefix
+
+              try {
+                const eventData = JSON.parse(jsonData)
+
+                // Handle different event types
+                if (eventData.type === 'response.output_text.delta') {
+                  // Update streaming text
+                  streamedText += eventData.delta
+                  setMessages(prev => {
+                    const newMessages = [...prev]
+                    if (newMessages[assistantMessageIndex]) {
+                      newMessages[assistantMessageIndex] = {
+                        role: 'assistant',
+                        content: streamedText
+                      }
                     }
-                  }
-                  return newMessages
-                })
-              } else if (event.type === 'response.completed') {
-                // Store response ID for multi-turn conversations
-                responseId = event.response.id
-                setLastResponseId(responseId)
+                    return newMessages
+                  })
+                } else if (eventData.type === 'response.completed') {
+                  // Store response ID for multi-turn conversations
+                  responseId = eventData.response.id
+                  setLastResponseId(responseId)
+                }
+              } catch (e) {
+                // Ignore parse errors for non-JSON lines
               }
-            } catch (e) {
-              // Ignore parse errors for non-JSON lines
             }
           }
         }
