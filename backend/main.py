@@ -163,8 +163,8 @@ class ResponseCompletedEvent(StreamEventBase):
 # In-memory conversation storage (for previous_response_id support)
 # ============================================================================
 
-# Store ClaudeSDKClient instances per conversation
-active_clients: Dict[str, ClaudeSDKClient] = {}
+# Store session IDs for conversation continuity (instead of client instances)
+session_ids: Dict[str, str] = {}
 
 # Store response metadata
 conversations: Dict[str, Dict[str, Any]] = {}
@@ -174,13 +174,13 @@ conversations: Dict[str, Dict[str, Any]] = {}
 # Claude Agent SDK Integration
 # ============================================================================
 
-async def get_or_create_client(
+async def create_client(
     model: str,
     previous_response_id: Optional[str] = None,
     enable_streaming: bool = False
 ) -> ClaudeSDKClient:
     """
-    Get existing client or create a new one.
+    Create a new Claude SDK client, optionally resuming a previous session.
 
     Args:
         model: Model name to use
@@ -190,22 +190,23 @@ async def get_or_create_client(
     Returns:
         ClaudeSDKClient instance
     """
-    # Determine if we're continuing a conversation
-    if previous_response_id and previous_response_id in active_clients:
-        # Reuse existing client for conversation continuity
-        return active_clients[previous_response_id]
-    else:
-        # Create new client for new conversation
-        options = ClaudeAgentOptions(
-            model=model,
-            allowed_tools=["Read", "Write", "Bash"],
-            permission_mode="acceptEdits",
-            setting_sources=["project"],  # Load CLAUDE.md
-            include_partial_messages=enable_streaming,  # Enable streaming if requested
-        )
-        client = ClaudeSDKClient(options=options)
-        await client.connect()
-        return client
+    # Check if we're continuing a conversation
+    resume_session_id = None
+    if previous_response_id and previous_response_id in session_ids:
+        resume_session_id = session_ids[previous_response_id]
+
+    # Create new client for this request (always create fresh client)
+    options = ClaudeAgentOptions(
+        model=model,
+        allowed_tools=["Read", "Write", "Bash"],
+        permission_mode="acceptEdits",
+        setting_sources=["project"],  # Load CLAUDE.md
+        include_partial_messages=enable_streaming,  # Enable streaming if requested
+        resume=resume_session_id,  # Resume previous session if available
+    )
+    client = ClaudeSDKClient(options=options)
+    await client.connect()
+    return client
 
 
 async def call_claude_agent(
@@ -218,7 +219,7 @@ async def call_claude_agent(
 
     Handles both new conversations and continuing existing ones.
     """
-    client = await get_or_create_client(model, previous_response_id, enable_streaming=False)
+    client = await create_client(model, previous_response_id, enable_streaming=False)
 
     # Send query to Claude
     await client.query(user_input)
@@ -227,6 +228,7 @@ async def call_claude_agent(
     response_text = ""
     input_tokens = 0
     output_tokens = 0
+    session_id = None
 
     async for message in client.receive_response():
         if isinstance(message, AssistantMessage):
@@ -234,16 +236,20 @@ async def call_claude_agent(
                 if isinstance(block, TextBlock):
                     response_text += block.text
         elif isinstance(message, ResultMessage):
-            # Extract usage information
+            # Extract usage information and session ID
             if message.usage:
                 input_tokens = message.usage.get("input_tokens", 0)
                 output_tokens = message.usage.get("output_tokens", 0)
+            session_id = message.session_id
+
+    # Disconnect client after response is complete
+    await client.disconnect()
 
     return {
         "text": response_text or "No response generated",
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
-        "client": client,  # Return client for storage
+        "session_id": session_id,  # Return session ID for storage
     }
 
 
@@ -260,7 +266,7 @@ async def stream_claude_agent(
 
     Yields SSE-formatted events following the OpenAI Responses API spec.
     """
-    client = await get_or_create_client(model, previous_response_id, enable_streaming=True)
+    client = await create_client(model, previous_response_id, enable_streaming=True)
 
     # Send query to Claude
     await client.query(user_input)
@@ -270,6 +276,7 @@ async def stream_claude_agent(
     response_text = ""
     input_tokens = 0
     output_tokens = 0
+    session_id = None
     output_index = 0
     content_index = 0
     created_at = int(time.time())
@@ -378,10 +385,11 @@ async def stream_claude_agent(
                         response_text = block.text
 
         elif isinstance(message, ResultMessage):
-            # Extract usage information and break (end of entire conversation)
+            # Extract usage information and session ID
             if message.usage:
                 input_tokens = message.usage.get("input_tokens", 0)
                 output_tokens = message.usage.get("output_tokens", 0)
+            session_id = message.session_id
             # Don't break yet - there might be more messages after tool execution
             # Only break when the iteration naturally completes
 
@@ -447,7 +455,10 @@ async def stream_claude_agent(
 
     # Store conversation if requested
     if store:
-        active_clients[response_id] = client
+        # Store session ID for conversation continuity (not the client instance)
+        if session_id:
+            session_ids[response_id] = session_id
+
         conversations[response_id] = {
             "request": {
                 "model": model,
@@ -456,6 +467,9 @@ async def stream_claude_agent(
             },
             "response": final_response.model_dump()
         }
+
+    # Disconnect client after streaming is complete
+    await client.disconnect()
 
 
 # ============================================================================
@@ -533,10 +547,11 @@ async def create_response(request: CreateResponseRequest):
             store=request.store
         )
 
-        # Store conversation client and metadata
+        # Store conversation session ID and metadata
         if request.store:
-            # Store the client for future conversation continuity
-            active_clients[response_id] = result["client"]
+            # Store the session ID for future conversation continuity
+            if result["session_id"]:
+                session_ids[response_id] = result["session_id"]
 
             conversations[response_id] = {
                 "request": request.model_dump(),
