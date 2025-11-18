@@ -61,8 +61,12 @@ function App() {
       let buffer = '' // Buffer to accumulate partial chunks
 
       // Add placeholder message for streaming
-      setMessages(prev => [...prev, { role: 'assistant', content: '' }])
-      const assistantMessageIndex = messages.length + 1 // +1 because we just added the user message
+      // Capture the actual index where the assistant message will be placed
+      let assistantMessageIndex = -1
+      setMessages(prev => {
+        assistantMessageIndex = prev.length  // Index after adding user message
+        return [...prev, { role: 'assistant', content: '' }]
+      })
 
       while (true) {
         const { done, value } = await reader.read()
