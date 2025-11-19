@@ -1,8 +1,16 @@
 """
 Test multi-turn conversation streaming to reproduce the hang bug.
 """
+import os
 import asyncio
 import httpx
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Default model from environment with fallback
+DEFAULT_MODEL = os.getenv("MODEL_NAME", "claude-haiku-4-5-20251001")
 
 
 async def read_sse_events(response, timeout_seconds=7):
@@ -41,7 +49,7 @@ async def test_multi_turn_streaming():
         response1 = await client.post(
             'http://localhost:8000/v1/responses',
             json={
-                'model': 'claude-haiku-4-5-20251001',
+                'model': DEFAULT_MODEL,
                 'input': 'Say hello in one word',
                 'stream': True,
                 'store': True,
@@ -69,7 +77,7 @@ async def test_multi_turn_streaming():
         response2 = await client.post(
             'http://localhost:8000/v1/responses',
             json={
-                'model': 'claude-haiku-4-5-20251001',
+                'model': DEFAULT_MODEL,
                 'input': 'Now say goodbye in one word',
                 'stream': True,
                 'store': True,

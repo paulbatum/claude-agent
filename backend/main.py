@@ -23,6 +23,9 @@ from claude_agent_sdk import (
 # Load environment variables
 load_dotenv(dotenv_path="../.env")
 
+# Default model configuration
+DEFAULT_MODEL = os.getenv("MODEL_NAME", "claude-haiku-4-5-20251001")
+
 app = FastAPI(title="Claude Agent API", version="0.1.0")
 
 # CORS middleware for local development

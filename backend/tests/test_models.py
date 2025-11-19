@@ -1,6 +1,7 @@
 """Unit tests for Pydantic models."""
 import pytest
 from pydantic import ValidationError
+from .test_config import DEFAULT_MODEL
 from main import (
     OutputTextContent,
     MessageOutput,
@@ -107,7 +108,7 @@ class TestResponseObject:
             id="resp_123",
             created_at=1234567890,
             status="completed",
-            model="claude-haiku-4-5-20251001",
+            model=DEFAULT_MODEL,
             output=[message],
             usage=usage
         )
@@ -127,7 +128,7 @@ class TestResponseObject:
         response = ResponseObject(
             id="resp_123",
             created_at=1234567890,
-            model="claude-haiku-4-5-20251001",
+            model=DEFAULT_MODEL,
             output=[message],
             usage=usage
         )
@@ -144,7 +145,7 @@ class TestResponseObject:
         response = ResponseObject(
             id="resp_123",
             created_at=1234567890,
-            model="claude-haiku-4-5-20251001",
+            model=DEFAULT_MODEL,
             output=[message],
             usage=usage,
             metadata={"test_key": "test_value"}
@@ -160,10 +161,10 @@ class TestCreateResponseRequest:
     def test_create_minimal_request(self):
         """Test creating request with minimal required fields."""
         request = CreateResponseRequest(
-            model="claude-haiku-4-5-20251001",
+            model=DEFAULT_MODEL,
             input="Hello!"
         )
-        assert request.model == "claude-haiku-4-5-20251001"
+        assert request.model == DEFAULT_MODEL
         assert request.input == "Hello!"
         assert request.stream is False
         assert request.store is True
@@ -174,7 +175,7 @@ class TestCreateResponseRequest:
     def test_create_full_request(self):
         """Test creating request with all fields."""
         request = CreateResponseRequest(
-            model="claude-haiku-4-5-20251001",
+            model=DEFAULT_MODEL,
             input="Hello!",
             stream=True,
             store=False,
@@ -191,7 +192,7 @@ class TestCreateResponseRequest:
     def test_missing_required_fields(self):
         """Test that missing required fields raises validation error."""
         with pytest.raises(ValidationError):
-            CreateResponseRequest(model="claude-haiku-4-5-20251001")
+            CreateResponseRequest(model=DEFAULT_MODEL)
 
         with pytest.raises(ValidationError):
             CreateResponseRequest(input="Hello!")
@@ -209,7 +210,7 @@ class TestStreamingEvents:
         response = ResponseObject(
             id="resp_123",
             created_at=1234567890,
-            model="claude-haiku-4-5-20251001",
+            model=DEFAULT_MODEL,
             output=[message],
             usage=usage
         )

@@ -1,6 +1,7 @@
 """Integration tests for API endpoints."""
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
+from .test_config import DEFAULT_MODEL
 from main import session_ids, conversations
 from claude_agent_sdk import AssistantMessage, TextBlock, ResultMessage
 
@@ -154,7 +155,7 @@ class TestCreateResponseEndpoint:
         """Test validation error for missing required fields."""
         # Missing 'input' field
         response = await test_client.post("/v1/responses", json={
-            "model": "claude-haiku-4-5-20251001"
+            "model": DEFAULT_MODEL
         })
         assert response.status_code == 422
 

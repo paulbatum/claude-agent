@@ -5,6 +5,7 @@ These tests are skipped if ANTHROPIC_API_KEY is not set.
 import os
 import pytest
 import json
+from .test_config import DEFAULT_MODEL
 
 # Skip all tests in this module if API key is missing
 pytestmark = [
@@ -22,8 +23,8 @@ class TestLiveConversation:
 
     async def test_simple_live_conversation(self, test_client, sample_request_data):
         """Test a simple conversation with the real API."""
-        # Use a cheap model for testing
-        sample_request_data["model"] = "claude-3-haiku-20240307"
+        # Use model from environment
+        sample_request_data["model"] = DEFAULT_MODEL
         sample_request_data["input"] = "Say 'hello world' and nothing else."
         
         # Ensure we are NOT mocking the client
@@ -46,7 +47,7 @@ class TestLiveConversation:
 
     async def test_live_streaming_conversation(self, test_client, sample_request_data):
         """Test streaming conversation with real API."""
-        sample_request_data["model"] = "claude-3-haiku-20240307"
+        sample_request_data["model"] = DEFAULT_MODEL
         sample_request_data["input"] = "Count from 1 to 3."
         sample_request_data["stream"] = True
         

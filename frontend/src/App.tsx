@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import './App.css'
 
+// Default model from environment variable with fallback
+const DEFAULT_MODEL = import.meta.env.VITE_MODEL || 'claude-haiku-4-5-20251001'
+
 interface Message {
   role: 'user' | 'assistant'
   content: string
@@ -36,7 +39,7 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: DEFAULT_MODEL,
           input: userMessage,
           stream: true,  // Enable streaming
           store: true,
@@ -142,7 +145,7 @@ function App() {
     <div className="app">
       <div className="chat-header">
         <h1>Claude Agent Chat</h1>
-        <p className="model-info">Model: claude-haiku-4-5-20251001</p>
+        <p className="model-info">Model: {DEFAULT_MODEL}</p>
       </div>
 
       <div className="messages-container">

@@ -1,6 +1,7 @@
 """Unit tests for helper functions."""
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
+from .test_config import DEFAULT_MODEL
 from main import (
     create_client,
     call_claude_agent,
@@ -26,7 +27,7 @@ class TestCreateClient:
         mock_client_class.return_value = mock_instance
 
         client = await create_client(
-            model="claude-haiku-4-5-20251001",
+            model=DEFAULT_MODEL,
             previous_response_id=None
         )
 
@@ -37,7 +38,7 @@ class TestCreateClient:
         # Verify options passed to client
         call_args = mock_client_class.call_args
         options = call_args.kwargs["options"]
-        assert options.model == "claude-haiku-4-5-20251001"
+        assert options.model == DEFAULT_MODEL
         assert options.resume is None
 
     @patch("main.ClaudeSDKClient")
@@ -51,7 +52,7 @@ class TestCreateClient:
         mock_client_class.return_value = mock_instance
 
         client = await create_client(
-            model="claude-haiku-4-5-20251001",
+            model=DEFAULT_MODEL,
             previous_response_id="resp_123"
         )
 
@@ -71,7 +72,7 @@ class TestCreateClient:
         mock_client_class.return_value = mock_instance
 
         client = await create_client(
-            model="claude-haiku-4-5-20251001",
+            model=DEFAULT_MODEL,
             enable_streaming=True
         )
 
@@ -109,7 +110,7 @@ class TestCallClaudeAgent:
         # Call the function
         result = await call_claude_agent(
             user_input="Hello!",
-            model="claude-haiku-4-5-20251001"
+            model=DEFAULT_MODEL
         )
 
         # Verify results
@@ -141,7 +142,7 @@ class TestCallClaudeAgent:
 
         result = await call_claude_agent(
             user_input="Hello!",
-            model="claude-haiku-4-5-20251001"
+            model=DEFAULT_MODEL
         )
 
         # Should return default message when no text
@@ -171,7 +172,7 @@ class TestCallClaudeAgent:
 
         result = await call_claude_agent(
             user_input="What did we discuss?",
-            model="claude-haiku-4-5-20251001",
+            model=DEFAULT_MODEL,
             previous_response_id="resp_abc123"
         )
 
@@ -212,7 +213,7 @@ class TestCallClaudeAgent:
 
         result = await call_claude_agent(
             user_input="Tell me something",
-            model="claude-haiku-4-5-20251001"
+            model=DEFAULT_MODEL
         )
 
         # Text blocks should be concatenated
@@ -241,7 +242,7 @@ class TestConversationStorage:
         conversations.clear()
 
         conversations["resp_123"] = {
-            "request": {"model": "claude-haiku-4-5-20251001", "input": "Hello"},
+            "request": {"model": DEFAULT_MODEL, "input": "Hello"},
             "response": {"id": "resp_123", "output": []}
         }
 

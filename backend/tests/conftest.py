@@ -2,6 +2,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from httpx import AsyncClient, ASGITransport
+from .test_config import DEFAULT_MODEL
 from main import app, session_ids, conversations
 from claude_agent_sdk import (
     AssistantMessage,
@@ -71,7 +72,7 @@ async def test_client():
 def sample_request_data():
     """Sample request data for testing."""
     return {
-        "model": "claude-haiku-4-5-20251001",
+        "model": DEFAULT_MODEL,
         "input": "Hello, how are you?",
         "stream": False,
         "store": True
