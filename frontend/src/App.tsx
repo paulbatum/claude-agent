@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import './App.css'
 
 // Default model from environment variable with fallback
-const DEFAULT_MODEL = import.meta.env.VITE_MODEL || 'claude-haiku-4-5-20251001'
+const DEFAULT_MODEL = import.meta.env.VITE_MODEL_NAME || 'claude-haiku-4-5-20251001'
 
 interface Message {
   role: 'user' | 'assistant'
